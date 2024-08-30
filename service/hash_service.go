@@ -26,8 +26,8 @@ func (s *HashService) hashingWord(word string) string {
 }
 
 func (s *HashService) generateWords() []string {
-	var words [] string
-	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	var words []string
+	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_-+=~"
 	// если длина пароля 1 символ
 	for _, ch := range chars {
 		words = append(words, string(ch))
