@@ -4,6 +4,24 @@ import (
 	"testing"
 )
 
+func TestTypicalGetWordCases(t *testing.T) {
+	service := NewHashService()
+
+	word := "ab"
+	hash := service.hashingWord(word)
+	foundWord, found := service.GetWord(hash)
+	if foundWord != word || !found {
+		t.Errorf("Expected word %v to be found with hash %v", word, hash)
+	}
+
+	wordSpecChars := "a@"
+	hashSpecChars := service.hashingWord(wordSpecChars)
+	foundWordSpecChars, foundSpec := service.GetWord(hashSpecChars)
+	if foundWordSpecChars != wordSpecChars || !found {
+		t.Errorf("GetWord(%s) = %v, %v; expected %v, true", hashSpecChars, foundWordSpecChars, foundSpec, wordSpecChars)
+	}
+}
+
 // краевые случаи метода GetWord
 func TestGetWordCases(t *testing.T) {
 	service := NewHashService()
