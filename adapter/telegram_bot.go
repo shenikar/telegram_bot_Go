@@ -40,6 +40,12 @@ func (b *TgBot) Start() {
 	for update := range updates {
 		if update.Message != nil {
 			text := update.Message.Text
+
+			if text == "/start" {
+				msg := tgbot.NewMessage(update.Message.Chat.ID, "Hello! Please enter Md5 hash.")
+				b.api.Send(msg)
+				continue
+			}
 			// проверка, то что это хеш md5
 			if len(text) == 32 {
 				if originalWord, found := b.hashService.GetWord(text); found {
