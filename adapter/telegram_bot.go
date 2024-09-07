@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"telegram_bot_go/domain"
+	"telegram_bot_go/repository"
 
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
@@ -13,12 +14,14 @@ import (
 type TgBot struct {
 	api         *tgbot.BotAPI
 	hashService domain.HashWorder
+	userRepo    *repository.UserRepo
 }
 
-func NewBot(api *tgbot.BotAPI, hashService domain.HashWorder) *TgBot {
+func NewBot(api *tgbot.BotAPI, hashService domain.HashWorder, userRepo *repository.UserRepo) *TgBot {
 	return &TgBot{
 		api:         api,
 		hashService: hashService,
+		userRepo:    userRepo,
 	}
 }
 
@@ -39,7 +42,25 @@ func (b *TgBot) Start() {
 
 	for update := range updates {
 		if update.Message != nil {
+			userID := update.Message.From.ID
 			text := update.Message.Text
+
+			limitRequest, err := b.userRepo.LimitRequest(int(userID))
+			if err != nil {
+				log.Printf("Error getting limit request: %v", err)
+			}
+
+			if limitRequest {
+				msg := tgbot.NewMessage(update.Message.Chat.ID, "Request limit. Please try again later.")
+				b.api.Send(msg)
+				continue
+			}
+
+			err = b.userRepo.SaveRequest(int(userID))
+			if err != nil {
+				log.Printf("Error saving request: %v", err)
+				continue
+			}
 
 			if text == "/start" {
 				msg := tgbot.NewMessage(update.Message.Chat.ID, "Hello! Please enter Md5 hash.")
