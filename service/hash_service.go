@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 )
 
+const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_-+=~"
+
 type HashService struct{}
 
 func NewHashService() *HashService {
@@ -27,7 +29,6 @@ func (s *HashService) hashingWord(word string) string {
 
 func (s *HashService) generateWords() []string {
 	var words []string
-	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_-+=~"
 	// если длина пароля 1 символ
 	for _, ch := range chars {
 		words = append(words, string(ch))
@@ -36,6 +37,24 @@ func (s *HashService) generateWords() []string {
 	for _, ch1 := range chars {
 		for _, ch2 := range chars {
 			words = append(words, string(ch1)+string(ch2))
+		}
+	}
+	// если длина пароля 3 символ
+	for _, ch1 := range chars {
+		for _, ch2 := range chars {
+			for _, ch3 := range chars {
+				words = append(words, string(ch1)+string(ch2)+string(ch3))
+			}
+		}
+	}
+	// если длина пароля 4 символ
+	for _, ch1 := range chars {
+		for _, ch2 := range chars {
+			for _, ch3 := range chars {
+				for _, ch4 := range chars {
+					words = append(words, string(ch1)+string(ch2)+string(ch3)+string(ch4))
+				}
+			}
 		}
 	}
 	return words
