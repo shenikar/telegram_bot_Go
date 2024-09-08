@@ -69,7 +69,7 @@ func (b *TgBot) Start() {
 			}
 			// проверка, то что это хеш md5
 			if len(text) == 32 {
-				if originalWord, found := b.hashService.GetWord(text); found {
+				if originalWord, found := b.hashService.GetWordMulti(text); found {
 					msg := tgbot.NewMessage(update.Message.Chat.ID, "Original word: "+originalWord)
 					b.api.Send(msg)
 				} else {
