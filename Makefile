@@ -12,6 +12,9 @@ run: build
 test:
 	cd service/ && go test -v
 
+test_bench:
+	cd service/ && go test -bench=.
+
 migrate_up:
 	goose -dir migrations postgres "host=$(DB_HOST) port=$(DB_PORT) user=$(DB_USER) password=$(DB_PASSWORD) dbname=$(DB_NAME) sslmode=disable" up
 
