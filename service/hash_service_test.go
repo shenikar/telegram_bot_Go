@@ -25,23 +25,33 @@ func TestTypicalGetWordCases(t *testing.T) {
 // краевые случаи метода GetWord
 func TestGetWordCases(t *testing.T) {
 	service := NewHashService()
-	testCases := []struct {
-		word     string
-		expected string
-		found    bool
-	}{
-		{"", "", false},
-		{"~", "~", true},
-		{"longwordlimit", "", false},
-		{"ñ", "", false},
-		{"nonehash", "", false},
+
+	// Пустая строка
+	hash := service.hashingWord("")
+	word, found := service.GetWord(hash)
+	if word != "" || found {
+		t.Errorf("GetWord(%s) = %v, %v; expected empty string and false", hash, word, found)
 	}
-	for _, tc := range testCases {
-		hash := service.hashingWord(tc.word)
-		word, found := service.GetWord(hash)
-		if word != tc.expected || found != tc.found {
-			t.Errorf("GetWord(%s) = %v, %v; expected %v,%v", hash, word, found, tc.expected, tc.found)
-		}
+
+	// Специальные символы
+	hashSpecChars := service.hashingWord("~")
+	wordSpecChars, foundSpecChars := service.GetWord(hashSpecChars)
+	if wordSpecChars != "~" || !foundSpecChars {
+		t.Errorf("GetWord(%s) = %v, %v; expected '~' and true", hashSpecChars, wordSpecChars, foundSpecChars)
+	}
+
+	// Несуществующее слово
+	hashNonExistent := service.hashingWord("longwordlimit")
+	wordNonExistent, foundNonExistent := service.GetWord(hashNonExistent)
+	if wordNonExistent != "" || foundNonExistent {
+		t.Errorf("GetWord(%s) = %v, %v; expected empty string and false", hashNonExistent, wordNonExistent, foundNonExistent)
+	}
+
+	// Сложные символы
+	hashSpecial := service.hashingWord("ñ")
+	wordSpecial, foundSpecial := service.GetWord(hashSpecial)
+	if wordSpecial != "" || foundSpecial {
+		t.Errorf("GetWord(%s) = %v, %v; expected empty string and false", hashSpecial, wordSpecial, foundSpecial)
 	}
 }
 
@@ -68,24 +78,21 @@ func TestHashingWordCases(t *testing.T) {
 // краевые случаи метода generateWord
 func TestGenerateWordsCases(t *testing.T) {
 	service := NewHashService()
-	words := service.generateWords()
-	if contains(words, "") {
-		t.Errorf("generateWords() = %v; expected not to contain empty string", words)
+	hash := service.hashingWord("a")
+	generatedWord := service.generateWords("", 4, hash)
+	if generatedWord != "a" {
+		t.Errorf("generateWords() = %v; expected 'a'", generatedWord)
 	}
-	if !contains(words, "~") {
-		t.Errorf("generateWords() = %v; expected to contain '~'", words)
-	}
-	if contains(words, "ñ") {
-		t.Errorf("generateWords() = %v; expected not to contain 'ñ'", words)
-	}
-}
 
-// проверка существует ли слово в сгенерированном списке слов
-func contains(s []string, item string) bool {
-	for _, i := range s {
-		if i == item {
-			return true
-		}
+	hash = service.hashingWord("ab")
+	generatedWord = service.generateWords("", 4, hash)
+	if generatedWord != "ab" {
+		t.Errorf("generateWords() = %v; expected 'ab'", generatedWord)
 	}
-	return false
+
+	hash = service.hashingWord("nonexistent")
+	generatedWord = service.generateWords("", 4, hash)
+	if generatedWord != "" {
+		t.Errorf("generateWords() = %v; expected empty string", generatedWord)
+	}
 }
