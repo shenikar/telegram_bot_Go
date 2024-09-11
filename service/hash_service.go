@@ -14,10 +14,9 @@ func NewHashService() *HashService {
 }
 
 func (s *HashService) GetWord(hash string) (string, bool) {
-	for _, word := range s.generateWords() {
-		if s.hashingWord(word) == hash {
-			return word, true
-		}
+	word := s.generateWords("", 4, hash)
+	if word != "" {
+		return word, true
 	}
 	return "", false
 }
@@ -27,35 +26,21 @@ func (s *HashService) hashingWord(word string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func (s *HashService) generateWords() []string {
-	var words []string
-	// если длина пароля 1 символ
-	for _, ch := range chars {
-		words = append(words, string(ch))
+func (s *HashService) generateWords(currentWord string, maxLen int, targetHash string) string {
+	if s.hashingWord(currentWord) == targetHash {
+		return currentWord
 	}
-	// если длина пароля 2 символ
-	for _, ch1 := range chars {
-		for _, ch2 := range chars {
-			words = append(words, string(ch1)+string(ch2))
+	if len(currentWord) == maxLen {
+		return ""
+	}
+
+	for _, char := range chars {
+		nextWord := currentWord + string(char)
+		foundWord := s.generateWords(nextWord, maxLen, targetHash)
+		if foundWord != "" {
+			return foundWord
 		}
 	}
-	// если длина пароля 3 символ
-	for _, ch1 := range chars {
-		for _, ch2 := range chars {
-			for _, ch3 := range chars {
-				words = append(words, string(ch1)+string(ch2)+string(ch3))
-			}
-		}
-	}
-	// если длина пароля 4 символ
-	for _, ch1 := range chars {
-		for _, ch2 := range chars {
-			for _, ch3 := range chars {
-				for _, ch4 := range chars {
-					words = append(words, string(ch1)+string(ch2)+string(ch3)+string(ch4))
-				}
-			}
-		}
-	}
-	return words
+	return ""
+
 }
