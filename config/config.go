@@ -9,8 +9,10 @@ import (
 )
 
 type Config struct {
-	Database Databaseconfig
-	Telegram TelegramConfig
+	Database   Databaseconfig
+	Telegram   TelegramConfig
+	MaxAttempt int
+	Period     string
 }
 
 type Databaseconfig struct {
@@ -39,6 +41,17 @@ func LoadConfig() (*Config, error) {
 		Port:     os.Getenv("DB_PORT"),
 	}
 
+	maxAttemptStr := os.Getenv("MAX_ATTEMPTS")
+	maxAttempt, err := strconv.Atoi(maxAttemptStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing MAX_ATTEMPTS: %v", err)
+	}
+
+	period := os.Getenv("PERIOD_ATTEMPTS")
+	if period == "" {
+		return nil, fmt.Errorf("PERIOD_ATTEMPTS is not set")
+	}
+
 	timeoutStr := os.Getenv("TIMEOUT_BOT")
 	timeout, err := strconv.Atoi(timeoutStr)
 	if err != nil {
@@ -51,7 +64,9 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Database: dbConfig,
-		Telegram: telegramConfig,
+		Database:   dbConfig,
+		Telegram:   telegramConfig,
+		MaxAttempt: maxAttempt,
+		Period:     period,
 	}, nil
 }
