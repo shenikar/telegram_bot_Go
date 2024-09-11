@@ -2,38 +2,32 @@ package adapter
 
 import (
 	"log"
-	"os"
-	"strconv"
-	"telegram_bot_go/domain"
+	"telegram_bot_go/config"
 	"telegram_bot_go/repository"
+	"telegram_bot_go/service"
 
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/joho/godotenv"
 )
 
 type TgBot struct {
 	api         *tgbot.BotAPI
-	hashService domain.HashWorder
+	hashService service.HashWorder
 	userRepo    *repository.UserRepo
+	config      *config.Config
 }
 
-func NewBot(api *tgbot.BotAPI, hashService domain.HashWorder, userRepo *repository.UserRepo) *TgBot {
+func NewBot(api *tgbot.BotAPI, hashService service.HashWorder, userRepo *repository.UserRepo, cfg *config.Config) *TgBot {
 	return &TgBot{
 		api:         api,
 		hashService: hashService,
 		userRepo:    userRepo,
+		config:      cfg,
 	}
 }
 
 func (b *TgBot) Start() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatalf("Error loading .env: %v", err)
-	}
-	timeout := b.getTimeout()
-
 	u := tgbot.NewUpdate(0)
-	u.Timeout = timeout
+	u.Timeout = b.config.Telegram.Timeout
 	updates := b.api.GetUpdatesChan(u)
 
 	for update := range updates {
@@ -43,32 +37,23 @@ func (b *TgBot) Start() {
 	}
 }
 
-func (b *TgBot) getTimeout() int {
-	timeoutStr := os.Getenv("TIMEOUT_BOT")
-	timeout, err := strconv.Atoi(timeoutStr)
-	if err != nil {
-		log.Fatalf("Invalid TIMEOUT_BOT value: %v", err)
-	}
-	return timeout
-}
-
 func (b *TgBot) handleMessage(m *tgbot.Message) {
 	userID := m.From.ID
 	text := m.Text
 
-	limitRequest, err := b.userRepo.LimitRequest(int(userID))
+	LimitAttempt, err := b.userRepo.LimitAttempt(int(userID))
 	if err != nil {
-		log.Printf("Error getting limit request: %v", err)
+		log.Printf("Error getting limit attempt: %v", err)
 		return
 	}
 
-	if limitRequest {
-		msg := tgbot.NewMessage(m.Chat.ID, "Request limit. Please try again later.")
+	if LimitAttempt {
+		msg := tgbot.NewMessage(m.Chat.ID, "Attempt limit. Please try again later.")
 		b.api.Send(msg)
 		return
 	}
 
-	err = b.userRepo.SaveRequest(int(userID))
+	err = b.userRepo.SaveAttempt(int(userID))
 	if err != nil {
 		log.Printf("Error saving request: %v", err)
 		return
