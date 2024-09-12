@@ -2,32 +2,30 @@ package main
 
 import (
 	"log"
-	"os"
 	"telegram_bot_go/adapter"
+	"telegram_bot_go/config"
 	"telegram_bot_go/repository"
 	"telegram_bot_go/service"
 
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	err := godotenv.Load()
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatal("Error loading env file")
+		log.Fatal(err)
 	}
 
-	db, err := repository.GetConnect()
+	db, err := repository.GetConnect(cfg.Database)
 	if err != nil {
 		log.Fatal("Failed to connect to the DB")
 	}
 
-	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if botToken == "" {
-		log.Fatal("Error: TELEGRAM_BOT_TOKEN is not set")
-	}
+	hashService := service.NewHashService()
+	userRepo := repository.NewUserRepo(db)
+	userService := service.NewUserService(userRepo, cfg)
 
-	botApi, err := tgbot.NewBotAPI(botToken)
+	botApi, err := tgbot.NewBotAPI(cfg.Telegram.Token)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,9 +33,6 @@ func main() {
 	botApi.Debug = true
 	log.Printf("Authorized on account %s", botApi.Self.UserName)
 
-	hashService := service.NewHashService()
-	userRepo := repository.NewUserRepo(db)
-
-	bot := adapter.NewBot(botApi, hashService, userRepo)
+	bot := adapter.NewBot(botApi, hashService, userService, cfg)
 	bot.Start()
 }
