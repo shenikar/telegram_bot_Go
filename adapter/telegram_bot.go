@@ -3,7 +3,6 @@ package adapter
 import (
 	"log"
 	"telegram_bot_go/config"
-	"telegram_bot_go/repository"
 	"telegram_bot_go/service"
 
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -12,22 +11,22 @@ import (
 type TgBot struct {
 	api         *tgbot.BotAPI
 	hashService service.HashWorder
-	userRepo    *repository.UserRepo
-	config      *config.Config
+	userService *service.UserService
+	cfg         *config.Config
 }
 
-func NewBot(api *tgbot.BotAPI, hashService service.HashWorder, userRepo *repository.UserRepo, cfg *config.Config) *TgBot {
+func NewBot(api *tgbot.BotAPI, hashService service.HashWorder, userService *service.UserService, cfg *config.Config) *TgBot {
 	return &TgBot{
 		api:         api,
 		hashService: hashService,
-		userRepo:    userRepo,
-		config:      cfg,
+		userService: userService,
+		cfg:         cfg,
 	}
 }
 
 func (b *TgBot) Start() {
 	u := tgbot.NewUpdate(0)
-	u.Timeout = b.config.Telegram.Timeout
+	u.Timeout = b.cfg.Telegram.Timeout
 	updates := b.api.GetUpdatesChan(u)
 
 	for update := range updates {
@@ -41,23 +40,24 @@ func (b *TgBot) handleMessage(m *tgbot.Message) {
 	userID := m.From.ID
 	text := m.Text
 
-	LimitAttempt, err := b.userRepo.LimitAttempt(int(userID))
+	limitAttempt, err := b.userService.LimitAttempt(int(userID))
 	if err != nil {
 		log.Printf("Error getting limit attempt: %v", err)
 		return
 	}
 
-	if LimitAttempt {
+	if limitAttempt {
 		msg := tgbot.NewMessage(m.Chat.ID, "Attempt limit. Please try again later.")
 		b.api.Send(msg)
 		return
 	}
 
-	err = b.userRepo.SaveAttempt(int(userID))
+	err = b.userService.SaveAttempt(int(userID), text)
 	if err != nil {
 		log.Printf("Error saving request: %v", err)
 		return
 	}
+
 	b.processCommand(m, text)
 }
 
