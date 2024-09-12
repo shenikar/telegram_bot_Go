@@ -9,6 +9,11 @@ const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#
 
 type HashService struct{}
 
+type HashWorder interface {
+	GetWord(hash string) (string, bool)
+	GetWordMulti(hash string) (string, bool)
+}
+
 func NewHashService() *HashService {
 	return &HashService{}
 }
