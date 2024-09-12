@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"telegram_bot_go/domain"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -14,18 +15,28 @@ func NewUserRepo(db *sqlx.DB) *UserRepo {
 	return &UserRepo{db: db}
 }
 
-func (r *UserRepo) LimitRequest(userID int) (bool, error) {
+func (r *UserRepo) CountAttempts(userID int, timeLimit time.Time) (int, error) {
 	var count int
-	query := `SELECT COUNT(*) FROM requests WHERE user_id=$1 AND created_at > now() - interval '1 hour'`
-	err := r.db.Get(&count, query, userID)
+	query := `SELECT COUNT(*) FROM requests WHERE user_id=$1 AND created_at > $2`
+	err := r.db.Get(&count, query, userID, timeLimit)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	return count >= 10, nil
+	return count, nil
 }
 
-func (r *UserRepo) SaveRequest(userID int) error {
-	query := `INSERT INTO requests (user_id, created_at) VALUES ($1, $2)`
-	_, err := r.db.Exec(query, userID, time.Now())
+func (r *UserRepo) SaveAttempt(userID int, hash string) error {
+	query := `INSERT INTO requests (user_id, hash, created_at) VALUES ($1, $2, $3)`
+	_, err := r.db.Exec(query, userID, hash, time.Now())
 	return err
+}
+
+func (r *UserRepo) GetAttemptHistory(userID int) ([]domain.HashRequest, error) {
+	var attempts []domain.HashRequest
+	query := `SELECT hash, created_at FROM requests WHERE user_id = $1`
+	err := r.db.Select(&attempts, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	return attempts, nil
 }
