@@ -8,6 +8,6 @@ type User struct {
 }
 
 type HashRequest struct {
-	Hash        string    `db:"hash"`
-	AttemptTime time.Time `db:"created_at"`
+	Hash        string
+	AttemptTime time.Time
 }
