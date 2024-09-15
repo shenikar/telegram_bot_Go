@@ -1,37 +1,46 @@
 package service
 
+import (
+	"sync"
+)
+
 func (s *HashService) GetWordMulti(hash string) (string, bool) {
-	wordChan := make(chan string)
-	done := make(chan struct{})
+	resultChan := make(chan string, 1)
+	var wg sync.WaitGroup
 
-	go s.generateWordsMulti("", 4, wordChan, done)
+	for _, char := range chars {
+		wg.Add(1)
+		go func(char rune) {
+			defer wg.Done()
+			s.generateWordsMulti(string(char), 4, hash, resultChan)
+		}(char)
+	}
 
-	for word := range wordChan {
-		if s.hashingWord(word) == hash {
-			close(done)
-			return word, true
-		}
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	if result, ok := <-resultChan; ok {
+		return result, true
 	}
 	return "", false
 }
 
-func (s *HashService) generateWordsMulti(currentWord string, maxLen int, wordChan chan<- string, done <-chan struct{}) {
-	if len(currentWord) == maxLen {
+func (s *HashService) generateWordsMulti(currentWord string, maxLen int, targetHash string, resultChan chan string) {
+	if s.hashingWord(currentWord) == targetHash {
 		select {
-		case <-done:
-			return
-		case wordChan <- currentWord:
+		case resultChan <- currentWord:
+		default:
 		}
+		return
+	}
+	if len(currentWord) == maxLen {
 		return
 	}
 
 	for _, char := range chars {
-		select {
-		case <-done:
-			return
-		default:
-			nextWord := currentWord + string(char)
-			go s.generateWordsMulti(nextWord, maxLen, wordChan, done)
-		}
+		nextWord := currentWord + string(char)
+		s.generateWordsMulti(nextWord, maxLen, targetHash, resultChan)
 	}
 }
