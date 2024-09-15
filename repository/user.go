@@ -7,6 +7,11 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+type hashRequestDB struct {
+	Hash        string    `db:"hash"`
+	AttemptTime time.Time `db:"created_at"`
+}
+
 type UserRepo struct {
 	db *sqlx.DB
 }
@@ -32,11 +37,19 @@ func (r *UserRepo) SaveAttempt(userID int, hash string) error {
 }
 
 func (r *UserRepo) GetAttemptHistory(userID int) ([]domain.HashRequest, error) {
-	var attempts []domain.HashRequest
+	var attemptsDB []hashRequestDB
 	query := `SELECT hash, created_at FROM requests WHERE user_id = $1`
-	err := r.db.Select(&attempts, query, userID)
+	err := r.db.Select(&attemptsDB, query, userID)
 	if err != nil {
 		return nil, err
+	}
+
+	attempts := make([]domain.HashRequest, len(attemptsDB))
+	for i, attemptDB := range attemptsDB {
+		attempts[i] = domain.HashRequest{
+			Hash:        attemptDB.Hash,
+			AttemptTime: attemptDB.AttemptTime,
+		}
 	}
 	return attempts, nil
 }
