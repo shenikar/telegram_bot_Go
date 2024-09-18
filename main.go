@@ -20,6 +20,10 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to the DB")
 	}
+	rabbitMQService, err := service.NewRabbitMqService(cfg.RabbitMQ.URL, cfg.RabbitMQ.Queue)
+	if err != nil {
+		log.Fatal("Failed to initialize RabbitMQ service")
+	}
 
 	hashService := service.NewHashService()
 	userRepo := repository.NewUserRepo(db)
@@ -33,6 +37,6 @@ func main() {
 	botApi.Debug = true
 	log.Printf("Authorized on account %s", botApi.Self.UserName)
 
-	bot := adapter.NewBot(botApi, hashService, userService, cfg)
+	bot := adapter.NewBot(botApi, hashService, userService, rabbitMQService, cfg)
 	bot.Start()
 }
