@@ -9,13 +9,14 @@ import (
 )
 
 type Config struct {
-	Database   Databaseconfig
+	Database   DatabaseConfig
 	Telegram   TelegramConfig
+	RabbitMQ   RabbitMQConfig
 	MaxAttempt int
 	Period     int
 }
 
-type Databaseconfig struct {
+type DatabaseConfig struct {
 	User     string
 	Password string
 	Name     string
@@ -28,12 +29,17 @@ type TelegramConfig struct {
 	Timeout int
 }
 
+type RabbitMQConfig struct {
+	URL   string
+	Queue string
+}
+
 func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(".env"); err != nil {
 		return nil, fmt.Errorf("error loading .env file: %v", err)
 	}
 
-	dbConfig := Databaseconfig{
+	dbConfig := DatabaseConfig{
 		User:     os.Getenv("DB_USER"),
 		Password: os.Getenv("DB_PASSWORD"),
 		Name:     os.Getenv("DB_NAME"),
@@ -64,10 +70,16 @@ func LoadConfig() (*Config, error) {
 		Timeout: timeout,
 	}
 
+	rabbitmqConfig := RabbitMQConfig{
+		URL:   os.Getenv("RABBITMQ_URL"),
+		Queue: os.Getenv("RABBITMQ_QUEUE"),
+	}
+
 	return &Config{
 		Database:   dbConfig,
 		Telegram:   telegramConfig,
 		MaxAttempt: maxAttempt,
 		Period:     period,
+		RabbitMQ:   rabbitmqConfig,
 	}, nil
 }
