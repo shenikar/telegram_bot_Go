@@ -1,0 +1,14 @@
+# Builder stage
+FROM golang:1.23 AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . . 
+RUN go build -o worker ./md5worker/main.go
+
+# Final stage
+FROM ubuntu:22.04
+WORKDIR /root
+COPY --from=builder /app/worker /root/worker
+RUN chmod +x /root/worker
+CMD ["/root/worker"]
