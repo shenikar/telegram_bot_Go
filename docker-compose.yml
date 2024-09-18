@@ -14,7 +14,19 @@ services:
       retries: 5
       start_period: 30s
       timeout: 5s
+    networks:
+      - default
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabiitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     networks:
       - default
 
@@ -31,10 +43,30 @@ services:
       DB_HOST: my_bot_db
       DB_PORT: ${DB_PORT}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE}
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_started
     entrypoint: /bin/sh -c "goose -dir /root/migrations postgres 'host=${DB_HOST} port=${DB_PORT} user=${DB_USER} password=${DB_PASSWORD} dbname=${DB_NAME} sslmode=disable' up && /root/telegram_bot"
+    networks:
+      - default
+
+  md5worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.md5worker
+    container_name: md5worker
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE}
+    volumes:
+      - ./.env:/root/.env
+    depends_on:
+      rabbitmq:
+        condition: service_started
     networks:
       - default
 
