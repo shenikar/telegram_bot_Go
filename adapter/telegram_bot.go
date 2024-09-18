@@ -12,14 +12,16 @@ type TgBot struct {
 	api         *tgbot.BotAPI
 	hashService service.HashWorder
 	userService *service.UserService
+	rabbitMQ    *service.RabbitMQService
 	cfg         *config.Config
 }
 
-func NewBot(api *tgbot.BotAPI, hashService service.HashWorder, userService *service.UserService, cfg *config.Config) *TgBot {
+func NewBot(api *tgbot.BotAPI, hashService service.HashWorder, userService *service.UserService, rabbitMQ *service.RabbitMQService, cfg *config.Config) *TgBot {
 	return &TgBot{
 		api:         api,
 		hashService: hashService,
 		userService: userService,
+		rabbitMQ:    rabbitMQ,
 		cfg:         cfg,
 	}
 }
@@ -55,6 +57,12 @@ func (b *TgBot) handleMessage(m *tgbot.Message) {
 	err = b.userService.SaveAttempt(int(userID), text)
 	if err != nil {
 		log.Printf("Error saving request: %v", err)
+		return
+	}
+
+	if err := b.rabbitMQ.SendQueue(text); err != nil {
+		msg := tgbot.NewMessage(m.Chat.ID, "Error sending to queue")
+		b.api.Send(msg)
 		return
 	}
 
