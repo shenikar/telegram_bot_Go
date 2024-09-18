@@ -8,7 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func GetConnect(dbConfig config.Databaseconfig) (*sqlx.DB, error) {
+func GetConnect(dbConfig config.DatabaseConfig) (*sqlx.DB, error) {
 	urlDb := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", dbConfig.User, dbConfig.Password, dbConfig.Host, dbConfig.Port, dbConfig.Name)
 	db, err := sqlx.Connect("pgx", urlDb)
 	if err != nil {
