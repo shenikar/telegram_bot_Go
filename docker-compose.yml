@@ -19,7 +19,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: rabiitmq
+    container_name: rabbitmq
     hostname: rabbitmq
     ports:
       - "5672:5672"
@@ -27,6 +27,15 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "rabbitmq-diagnostics -q ping" ]
+      interval: 10s
+      retries: 5
+      start_period: 60s
+      timeout: 5s
     networks:
       - default
 
@@ -49,16 +58,14 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
-    entrypoint: /bin/sh -c "goose -dir /root/migrations postgres 'host=${DB_HOST} port=${DB_PORT} user=${DB_USER} password=${DB_PASSWORD} dbname=${DB_NAME} sslmode=disable' up && /root/telegram_bot"
-    networks:
-      - default
-
+        condition: service_healthy
+    entrypoint: /bin/sh -c "sleep 30 && goose -dir /root/migrations postgres 'host=${DB_HOST} port=${DB_PORT} user=${DB_USER} password=${DB_PASSWORD} dbname=${DB_NAME} sslmode=disable' up && /root/telegram_bot"
   md5worker:
     build:
       context: .
       dockerfile: Dockerfile.md5worker
-    container_name: md5worker
+    deploy:
+      replicas: 1
     environment:
       RABBITMQ_URL: ${RABBITMQ_URL}
       RABBITMQ_QUEUE: ${RABBITMQ_QUEUE}
@@ -66,7 +73,8 @@ services:
       - ./.env:/root/.env
     depends_on:
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
+    entrypoint: /bin/sh -c "sleep 30 && /root/worker"
     networks:
       - default
 
