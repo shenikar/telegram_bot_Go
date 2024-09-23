@@ -6,6 +6,7 @@ import (
 	"telegram_bot_go/service"
 
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type TgBot struct {
@@ -60,33 +61,57 @@ func (b *TgBot) handleMessage(m *tgbot.Message) {
 		return
 	}
 
-	if err := b.rabbitMQ.SendQueue(text); err != nil {
+	// Создаем временную callback очередь
+	callbackQueue, err := b.rabbitMQ.CreateCallbackQueue()
+	if err != nil {
+		msg := tgbot.NewMessage(m.Chat.ID, "Error creating callback queue")
+		b.api.Send(msg)
+		return
+	}
+
+	// Отправляем сообщение с указанием callback очереди
+	if err := b.rabbitMQ.SendQueueWithReply(text, callbackQueue.Name, int64(userID)); err != nil {
 		msg := tgbot.NewMessage(m.Chat.ID, "Error sending to queue")
 		b.api.Send(msg)
 		return
 	}
 
-	b.processCommand(m, text)
-}
-
-func (b *TgBot) processCommand(m *tgbot.Message, text string) {
-	if text == "/start" {
-		msg := tgbot.NewMessage(m.Chat.ID, "Hello! Please enter Md5 hash.")
-		b.api.Send(msg)
-		return
-	}
-	// проверка, то что это хеш md5
-	if len(text) == 32 {
-		if originalWord, found := b.hashService.GetWord(text); found {
-			msg := tgbot.NewMessage(m.Chat.ID, "Original word: "+originalWord)
-			b.api.Send(msg)
-		} else {
-			msg := tgbot.NewMessage(m.Chat.ID, "Hash not found")
-			b.api.Send(msg)
+	go func() {
+		msgs, err := b.rabbitMQ.ConsumeResults(callbackQueue.Name)
+		if err != nil {
+			log.Printf("Failed to register a consumer: %v", err)
+			return
 		}
+		b.ListenForResults(msgs, m.Chat.ID)
+	}()
+}
 
-	} else {
-		msg := tgbot.NewMessage(m.Chat.ID, "Invalid hash")
+func (b *TgBot) ListenForResults(msgs <-chan amqp.Delivery, chatID int64) {
+	for d := range msgs {
+		result := string(d.Body)
+		msg := tgbot.NewMessage(chatID, result)
 		b.api.Send(msg)
 	}
 }
+
+// func (b *TgBot) processCommand(m *tgbot.Message, text string) {
+// 	if text == "/start" {
+// 		msg := tgbot.NewMessage(m.Chat.ID, "Hello! Please enter Md5 hash.")
+// 		b.api.Send(msg)
+// 		return
+// 	}
+// 	// проверка, то что это хеш md5
+// 	if len(text) == 32 {
+// 		if originalWord, found := b.hashService.GetWord(text); found {
+// 			msg := tgbot.NewMessage(m.Chat.ID, "Original word: "+originalWord)
+// 			b.api.Send(msg)
+// 		} else {
+// 			msg := tgbot.NewMessage(m.Chat.ID, "Hash not found")
+// 			b.api.Send(msg)
+// 		}
+
+// 	} else {
+// 		msg := tgbot.NewMessage(m.Chat.ID, "Invalid hash")
+// 		b.api.Send(msg)
+// 	}
+// }
