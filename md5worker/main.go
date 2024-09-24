@@ -17,16 +17,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Подключение к базе данных
 	db, err := repository.GetConnect(cfg.Database)
 	if err != nil {
 		log.Fatal("Failed to connect to the DB")
 	}
 
-	// Создаем экземпляр репозитория
 	userRepo := repository.NewUserRepo(db)
 
-	// Создаем сервис статистики
 	statsService := service.NewStatsService(userRepo)
 
 	conn, err := amqp.Dial(cfg.RabbitMQ.URL)
@@ -89,7 +86,7 @@ func processMessage(d amqp.Delivery, hashService *service.HashService, statsServ
 	}
 
 	if hash == "/stats" {
-		userID, err := strconv.Atoi(d.UserId) // Преобразуем UserId в int
+		userID, err := strconv.Atoi(d.UserId)
 		if err != nil {
 			log.Printf("Failed to convert UserId: %v", err)
 			response := "Error retrieving stats."
@@ -173,7 +170,6 @@ func handleStatsRequest(statsService *service.StatsService, replyTo string, user
 		return
 	}
 
-	// Формирование ответа со статистикой
 	response := "Statistics:\n"
 	for _, stat := range stats {
 		response += stat.Hash + " - " + stat.Result + " at " + stat.AttemptTime.String() + "\n"
