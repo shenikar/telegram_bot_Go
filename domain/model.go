@@ -10,4 +10,5 @@ type User struct {
 type HashRequest struct {
 	Hash        string
 	AttemptTime time.Time
+	Result      string
 }
