@@ -10,20 +10,22 @@ import (
 )
 
 type TgBot struct {
-	api         *tgbot.BotAPI
-	hashService service.HashWorder
-	userService *service.UserService
-	rabbitMQ    *service.RabbitMQService
-	cfg         *config.Config
+	api          *tgbot.BotAPI
+	hashService  service.HashWorder
+	userService  *service.UserService
+	rabbitMQ     *service.RabbitMQService
+	statsService *service.StatsService
+	cfg          *config.Config
 }
 
-func NewBot(api *tgbot.BotAPI, hashService service.HashWorder, userService *service.UserService, rabbitMQ *service.RabbitMQService, cfg *config.Config) *TgBot {
+func NewBot(api *tgbot.BotAPI, hashService service.HashWorder, userService *service.UserService, rabbitMQ *service.RabbitMQService, statsService *service.StatsService, cfg *config.Config) *TgBot {
 	return &TgBot{
-		api:         api,
-		hashService: hashService,
-		userService: userService,
-		rabbitMQ:    rabbitMQ,
-		cfg:         cfg,
+		api:          api,
+		hashService:  hashService,
+		userService:  userService,
+		rabbitMQ:     rabbitMQ,
+		statsService: statsService,
+		cfg:          cfg,
 	}
 }
 
@@ -55,9 +57,30 @@ func (b *TgBot) handleMessage(m *tgbot.Message) {
 		return
 	}
 
-	err = b.userService.SaveAttempt(int(userID), text)
-	if err != nil {
-		log.Printf("Error saving request: %v", err)
+	if text == "/stats" {
+
+		callbackQueue, err := b.rabbitMQ.CreateCallbackQueue()
+		if err != nil {
+			msg := tgbot.NewMessage(m.Chat.ID, "Error creating callback queue.")
+			b.api.Send(msg)
+			return
+		}
+
+		err = b.rabbitMQ.SendQueueWithReply("/stats", callbackQueue.Name, int64(userID))
+		if err != nil {
+			msg := tgbot.NewMessage(m.Chat.ID, "Error sending stats request to queue.")
+			b.api.Send(msg)
+			return
+		}
+
+		go func() {
+			msgs, err := b.rabbitMQ.ConsumeResults(callbackQueue.Name)
+			if err != nil {
+				log.Printf("Failed to register a consumer for stats: %v", err)
+				return
+			}
+			b.ListenForResults(msgs, m.Chat.ID)
+		}()
 		return
 	}
 

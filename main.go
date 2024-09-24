@@ -2,8 +2,10 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"telegram_bot_go/adapter"
 	"telegram_bot_go/config"
+	server "telegram_bot_go/http_server"
 	"telegram_bot_go/repository"
 	"telegram_bot_go/service"
 
@@ -37,6 +39,17 @@ func main() {
 	botApi.Debug = true
 	log.Printf("Authorized on account %s", botApi.Self.UserName)
 
-	bot := adapter.NewBot(botApi, hashService, userService, rabbitMQService, cfg)
+	statsService := service.NewStatsService(userRepo)
+
+	go func() {
+		httpHandler := server.NewStatsHandler(statsService)
+		http.Handle("/stats", httpHandler)
+		log.Println("Starting HTTP server on :8080")
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			log.Fatal("HTTP server failed:", err)
+		}
+	}()
+
+	bot := adapter.NewBot(botApi, hashService, userService, rabbitMQService, statsService, cfg)
 	bot.Start()
 }

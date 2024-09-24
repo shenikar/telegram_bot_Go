@@ -2,8 +2,10 @@ package main
 
 import (
 	"log"
+	"strconv"
 
 	"telegram_bot_go/config"
+	"telegram_bot_go/repository"
 	"telegram_bot_go/service"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -14,6 +16,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Подключение к базе данных
+	db, err := repository.GetConnect(cfg.Database)
+	if err != nil {
+		log.Fatal("Failed to connect to the DB")
+	}
+
+	// Создаем экземпляр репозитория
+	userRepo := repository.NewUserRepo(db)
+
+	// Создаем сервис статистики
+	statsService := service.NewStatsService(userRepo)
+
 	conn, err := amqp.Dial(cfg.RabbitMQ.URL)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
@@ -57,7 +72,7 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			processMessage(d, hashService, ch)
+			processMessage(d, hashService, statsService, ch)
 		}
 	}()
 
@@ -65,15 +80,37 @@ func main() {
 	<-forever
 }
 
-func processMessage(d amqp.Delivery, hashService *service.HashService, ch *amqp.Channel) {
+func processMessage(d amqp.Delivery, hashService *service.HashService, statsService *service.StatsService, ch *amqp.Channel) {
 	hash := string(d.Body)
 
 	if hash == "/start" {
 		handleStartCommand(ch, d.ReplyTo, d.CorrelationId)
 		return
 	}
-	log.Printf("Received a message: %s", hash)
 
+	if hash == "/stats" {
+		userID, err := strconv.Atoi(d.UserId) // Преобразуем UserId в int
+		if err != nil {
+			log.Printf("Failed to convert UserId: %v", err)
+			response := "Error retrieving stats."
+			ch.Publish(
+				"",
+				d.ReplyTo,
+				false,
+				false,
+				amqp.Publishing{
+					ContentType:   "text/plain",
+					Body:          []byte(response),
+					CorrelationId: d.CorrelationId,
+				},
+			)
+			return
+		}
+		handleStatsRequest(statsService, d.ReplyTo, userID, d.CorrelationId, ch)
+		return
+	}
+
+	log.Printf("Received a message: %s", hash)
 	originalWord, found := hashService.GetWordMulti(hash)
 
 	response := ""
@@ -115,5 +152,45 @@ func handleStartCommand(ch *amqp.Channel, replyTo string, correlationId string) 
 	)
 	if err != nil {
 		log.Printf("Failed to publish a response to /start command: %v", err)
+	}
+}
+
+func handleStatsRequest(statsService *service.StatsService, replyTo string, userID int, correlationId string, ch *amqp.Channel) {
+	stats, err := statsService.GetStats(userID)
+	if err != nil {
+		response := "Error retrieving stats."
+		ch.Publish(
+			"",
+			replyTo,
+			false,
+			false,
+			amqp.Publishing{
+				ContentType:   "text/plain",
+				Body:          []byte(response),
+				CorrelationId: correlationId,
+			},
+		)
+		return
+	}
+
+	// Формирование ответа со статистикой
+	response := "Statistics:\n"
+	for _, stat := range stats {
+		response += stat.Hash + " - " + stat.Result + " at " + stat.AttemptTime.String() + "\n"
+	}
+
+	err = ch.Publish(
+		"",
+		replyTo,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:   "text/plain",
+			Body:          []byte(response),
+			CorrelationId: correlationId,
+		},
+	)
+	if err != nil {
+		log.Printf("Failed to publish stats response: %v", err)
 	}
 }

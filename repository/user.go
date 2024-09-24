@@ -10,6 +10,7 @@ import (
 type hashRequestDB struct {
 	Hash        string    `db:"hash"`
 	AttemptTime time.Time `db:"created_at"`
+	Result      string    `db:"result"`
 }
 
 type UserRepo struct {
@@ -30,16 +31,16 @@ func (r *UserRepo) CountAttempts(userID int, timeLimit time.Time) (int, error) {
 	return count, nil
 }
 
-func (r *UserRepo) SaveAttempt(userID int, hash string) error {
-	query := `INSERT INTO requests (user_id, hash, created_at) VALUES ($1, $2, $3)`
-	_, err := r.db.Exec(query, userID, hash, time.Now())
+func (r *UserRepo) SaveAttempt(userID int, hash string, result string) error {
+	query := `INSERT INTO requests (user_id, hash, result, created_at) VALUES ($1, $2, $3, $4)`
+	_, err := r.db.Exec(query, userID, hash, result, time.Now())
 	return err
 }
 
-func (r *UserRepo) GetAttemptHistory(userID int) ([]domain.HashRequest, error) {
+func (r *UserRepo) GetAttemptHistory(userID int, timeLimit time.Time) ([]domain.HashRequest, error) {
 	var attemptsDB []hashRequestDB
-	query := `SELECT hash, created_at FROM requests WHERE user_id = $1`
-	err := r.db.Select(&attemptsDB, query, userID)
+	query := `SELECT hash, created_at, result FROM requests WHERE user_id = $1 AND created_at > $2`
+	err := r.db.Select(&attemptsDB, query, userID, timeLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +50,7 @@ func (r *UserRepo) GetAttemptHistory(userID int) ([]domain.HashRequest, error) {
 		attempts[i] = domain.HashRequest{
 			Hash:        attemptDB.Hash,
 			AttemptTime: attemptDB.AttemptTime,
+			Result:      attemptDB.Result,
 		}
 	}
 	return attempts, nil
