@@ -17,22 +17,14 @@ func NewUserService(repo *repository.UserRepo, cfg *config.Config) *UserService 
 }
 
 func (s *UserService) LimitAttempt(userID int) (bool, error) {
-	attemptHistory, err := s.repo.GetAttemptHistory(userID)
+	timeLimit := time.Now().Add(-time.Duration(s.cfg.Period) * time.Hour)
+	count, err := s.repo.CountAttempts(userID, timeLimit)
 	if err != nil {
 		return false, err
 	}
-
-	timeLimit := time.Now().Add(-time.Duration(s.cfg.Period) * time.Hour)
-	count := 0
-	for _, attempt := range attemptHistory {
-		if attempt.AttemptTime.After(timeLimit) {
-			count++
-		}
-	}
-
 	return count >= s.cfg.MaxAttempt, nil
 }
 
-func (s *UserService) SaveAttempt(userID int, hash string) error {
-	return s.repo.SaveAttempt(userID, hash)
+func (s *UserService) SaveAttempt(userID int, hash, result string) error {
+	return s.repo.SaveAttempt(userID, hash, result)
 }
