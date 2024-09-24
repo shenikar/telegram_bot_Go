@@ -7,7 +7,8 @@ CREATE TABLE
         hash TEXT NOT NULL,
         created_at TIMESTAMP
         WITH
-            TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            result TEXT
     );
 
 -- +goose StatementEnd
