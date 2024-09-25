@@ -24,3 +24,8 @@ func (s *StatsService) GetStats(userID int) ([]domain.HashRequest, error) {
 	}
 	return requests, nil
 }
+
+func (s *StatsService) GetLast24HoursRequests() ([]domain.HashRequest, error) {
+	timeLimit := time.Now().Add(-24 * time.Hour)
+	return s.userRepo.GetRequestsLast24Hours(timeLimit)
+}
