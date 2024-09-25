@@ -102,7 +102,7 @@ func (b *TgBot) handleHashProcessing(hash string, chatID int64, userID int64) {
 			log.Printf("Failed to register a consumer: %v", err)
 			return
 		}
-		b.ListenForResults(msgs, chatID)
+		b.ListenForResults(msgs, chatID, hash, userID)
 	}()
 }
 
@@ -123,9 +123,13 @@ func (b *TgBot) handleStatsCommand(chatID int64, userID int) {
 	b.api.Send(msg)
 }
 
-func (b *TgBot) ListenForResults(msgs <-chan amqp.Delivery, chatID int64) {
+func (b *TgBot) ListenForResults(msgs <-chan amqp.Delivery, chatID int64, hash string, userID int64) {
 	for d := range msgs {
 		result := string(d.Body)
+		err := b.userService.SaveAttempt(int(userID), hash, result)
+		if err != nil {
+			log.Printf("Failed to save request: %v", err)
+		}
 		msg := tgbot.NewMessage(chatID, result)
 		b.api.Send(msg)
 	}
