@@ -55,3 +55,22 @@ func (r *UserRepo) GetAttemptHistory(userID int, timeLimit time.Time) ([]domain.
 	}
 	return attempts, nil
 }
+
+func (r *UserRepo) GetRequestsLast24Hours(timeLimit time.Time) ([]domain.HashRequest, error) {
+	var requestsDB []hashRequestDB
+	query := `SELECT hash, created_at, result FROM requests WHERE created_at > $1`
+	err := r.db.Select(&requestsDB, query, timeLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	requests := make([]domain.HashRequest, len(requestsDB))
+	for i, requestDB := range requestsDB {
+		requests[i] = domain.HashRequest{
+			Hash:        requestDB.Hash,
+			AttemptTime: requestDB.AttemptTime,
+			Result:      requestDB.Result,
+		}
+	}
+	return requests, nil
+}
