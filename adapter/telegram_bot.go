@@ -1,9 +1,11 @@
 package adapter
 
 import (
+	"fmt"
 	"log"
 	"telegram_bot_go/config"
 	"telegram_bot_go/service"
+	"time"
 
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -52,61 +54,73 @@ func (b *TgBot) handleMessage(m *tgbot.Message) {
 	}
 
 	if limitAttempt {
-		msg := tgbot.NewMessage(m.Chat.ID, "Attempt limit. Please try again later.")
+		msg := tgbot.NewMessage(m.Chat.ID, "Attempt limit reached. Please try again later.")
+		b.api.Send(msg)
+		return
+	}
+
+	if text == "/start" {
+		msg := tgbot.NewMessage(m.Chat.ID, "Welcome to the MD5 Bot! Please send a hash for decoding.")
 		b.api.Send(msg)
 		return
 	}
 
 	if text == "/stats" {
-
-		callbackQueue, err := b.rabbitMQ.CreateCallbackQueue()
-		if err != nil {
-			msg := tgbot.NewMessage(m.Chat.ID, "Error creating callback queue.")
-			b.api.Send(msg)
-			return
-		}
-
-		err = b.rabbitMQ.SendQueueWithReply("/stats", callbackQueue.Name, int64(userID))
-		if err != nil {
-			msg := tgbot.NewMessage(m.Chat.ID, "Error sending stats request to queue.")
-			b.api.Send(msg)
-			return
-		}
-
-		go func() {
-			msgs, err := b.rabbitMQ.ConsumeResults(callbackQueue.Name)
-			if err != nil {
-				log.Printf("Failed to register a consumer for stats: %v", err)
-				return
-			}
-			b.ListenForResults(msgs, m.Chat.ID)
-		}()
+		b.handleStatsCommand(m.Chat.ID, int(userID))
 		return
 	}
 
-	// Создаем временную callback очередь
+	if len(text) != 32 {
+		msg := tgbot.NewMessage(m.Chat.ID, "Invalid hash format. Please send a valid MD5 hash (32 characters).")
+		b.api.Send(msg)
+		return
+	}
+
+	b.handleHashProcessing(text, m.Chat.ID, int64(userID))
+}
+
+func (b *TgBot) handleHashProcessing(hash string, chatID int64, userID int64) {
 	callbackQueue, err := b.rabbitMQ.CreateCallbackQueue()
 	if err != nil {
-		msg := tgbot.NewMessage(m.Chat.ID, "Error creating callback queue")
+		msg := tgbot.NewMessage(chatID, "Error creating callback queue.")
 		b.api.Send(msg)
 		return
 	}
 
-	// Отправляем сообщение с указанием callback очереди
-	if err := b.rabbitMQ.SendQueueWithReply(text, callbackQueue.Name, int64(userID)); err != nil {
-		msg := tgbot.NewMessage(m.Chat.ID, "Error sending to queue")
+	// Отправляем хеш в RabbitMQ для обработки
+	err = b.rabbitMQ.SendQueueWithReply(hash, callbackQueue.Name, userID)
+	if err != nil {
+		msg := tgbot.NewMessage(chatID, "Error sending hash to queue.")
 		b.api.Send(msg)
 		return
 	}
 
+	// Ожидание ответа от воркера
 	go func() {
 		msgs, err := b.rabbitMQ.ConsumeResults(callbackQueue.Name)
 		if err != nil {
 			log.Printf("Failed to register a consumer: %v", err)
 			return
 		}
-		b.ListenForResults(msgs, m.Chat.ID)
+		b.ListenForResults(msgs, chatID)
 	}()
+}
+
+func (b *TgBot) handleStatsCommand(chatID int64, userID int) {
+	stats, err := b.statsService.GetStats(userID)
+	if err != nil {
+		msg := tgbot.NewMessage(chatID, "Error retrieving stats.")
+		b.api.Send(msg)
+		return
+	}
+
+	response := "Statistics:\n"
+	for _, stat := range stats {
+		response += fmt.Sprintf("Hash: %s - Result: %s at %s\n", stat.Hash, stat.Result, stat.AttemptTime.Format(time.RFC1123))
+	}
+
+	msg := tgbot.NewMessage(chatID, response)
+	b.api.Send(msg)
 }
 
 func (b *TgBot) ListenForResults(msgs <-chan amqp.Delivery, chatID int64) {
@@ -116,25 +130,3 @@ func (b *TgBot) ListenForResults(msgs <-chan amqp.Delivery, chatID int64) {
 		b.api.Send(msg)
 	}
 }
-
-// func (b *TgBot) processCommand(m *tgbot.Message, text string) {
-// 	if text == "/start" {
-// 		msg := tgbot.NewMessage(m.Chat.ID, "Hello! Please enter Md5 hash.")
-// 		b.api.Send(msg)
-// 		return
-// 	}
-// 	// проверка, то что это хеш md5
-// 	if len(text) == 32 {
-// 		if originalWord, found := b.hashService.GetWord(text); found {
-// 			msg := tgbot.NewMessage(m.Chat.ID, "Original word: "+originalWord)
-// 			b.api.Send(msg)
-// 		} else {
-// 			msg := tgbot.NewMessage(m.Chat.ID, "Hash not found")
-// 			b.api.Send(msg)
-// 		}
-
-// 	} else {
-// 		msg := tgbot.NewMessage(m.Chat.ID, "Invalid hash")
-// 		b.api.Send(msg)
-// 	}
-// }

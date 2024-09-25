@@ -18,21 +18,26 @@ func NewRabbitMqService(amqpURI, queueName string) (*RabbitMQService, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, err
 	}
+
 	q, err := ch.QueueDeclare(
-		queueName, // name
-		true,      // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		nil,       // arguments
+		queueName,
+		true,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("Queue %s declared", q.Name) // Лог для проверки успешного создания очереди
+
 	return &RabbitMQService{
 		channel: ch,
 		queue:   q,
@@ -40,7 +45,7 @@ func NewRabbitMqService(amqpURI, queueName string) (*RabbitMQService, error) {
 }
 
 func (r *RabbitMQService) CreateCallbackQueue() (amqp.Queue, error) {
-	return r.channel.QueueDeclare(
+	q, err := r.channel.QueueDeclare(
 		"",
 		false,
 		true,
@@ -48,6 +53,11 @@ func (r *RabbitMQService) CreateCallbackQueue() (amqp.Queue, error) {
 		false,
 		nil,
 	)
+	if err != nil {
+		return q, err
+	}
+	log.Printf("Callback queue %s created", q.Name) // Лог для проверки создания обратной очереди
+	return q, nil
 }
 
 func (r *RabbitMQService) SendQueueWithReply(hash string, callbackQueueName string, chatID int64) error {
@@ -70,6 +80,7 @@ func (r *RabbitMQService) SendQueueWithReply(hash string, callbackQueueName stri
 		log.Printf("Failed to publish a message: %v", err)
 		return err
 	}
+
 	log.Printf(" [x] Sent %s to queue %s\n", hash, r.queue.Name)
 	return nil
 }
@@ -77,15 +88,16 @@ func (r *RabbitMQService) SendQueueWithReply(hash string, callbackQueueName stri
 func (r *RabbitMQService) ConsumeResults(callbackQueueName string) (<-chan amqp.Delivery, error) {
 	msgs, err := r.channel.Consume(
 		callbackQueueName,
-		"",    // consumer
-		true,  // auto-ack
-		false, // exclusive
-		false, // no-local
-		false, // no-wait
-		nil,   // args
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Consuming messages from %s", callbackQueueName)
 	return msgs, nil
 }
