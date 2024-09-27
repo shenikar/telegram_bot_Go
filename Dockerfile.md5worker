@@ -4,7 +4,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . . 
-RUN go build -o worker ./md5worker/main.go
+RUN go build -o worker ./adapter/md5worker/main.go
 
 # Final stage
 FROM ubuntu:22.04

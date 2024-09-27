@@ -3,9 +3,11 @@ package main
 import (
 	"log"
 	"net/http"
-	"telegram_bot_go/adapter"
+	"telegram_bot_go/adapter/database"
+	server "telegram_bot_go/adapter/http_server"
+	rabbitmq "telegram_bot_go/adapter/queue"
+	"telegram_bot_go/adapter/telegram"
 	"telegram_bot_go/config"
-	server "telegram_bot_go/http_server"
 	"telegram_bot_go/repository"
 	"telegram_bot_go/service"
 
@@ -18,11 +20,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	db, err := repository.GetConnect(cfg.Database)
+	db, err := database.GetConnect(cfg.Database)
 	if err != nil {
 		log.Fatal("Failed to connect to the DB")
 	}
-	rabbitMQService, err := service.NewRabbitMqService(cfg.RabbitMQ.URL, cfg.RabbitMQ.Queue)
+	rabbitMQService, err := rabbitmq.NewRabbitMqService(cfg.RabbitMQ.URL, cfg.RabbitMQ.Queue)
 	if err != nil {
 		log.Fatal("Failed to initialize RabbitMQ service")
 	}
@@ -50,6 +52,6 @@ func main() {
 		}
 	}()
 
-	bot := adapter.NewBot(botApi, hashService, userService, rabbitMQService, statsService, cfg)
+	bot := telegram.NewBot(botApi, hashService, userService, rabbitMQService, statsService, cfg)
 	bot.Start()
 }

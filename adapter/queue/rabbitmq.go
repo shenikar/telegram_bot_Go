@@ -1,4 +1,4 @@
-package service
+package rabbitmq
 
 import (
 	"context"

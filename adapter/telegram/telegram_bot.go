@@ -1,8 +1,9 @@
-package adapter
+package telegram
 
 import (
 	"fmt"
 	"log"
+	rabbitmq "telegram_bot_go/adapter/queue"
 	"telegram_bot_go/config"
 	"telegram_bot_go/service"
 	"time"
@@ -15,12 +16,12 @@ type TgBot struct {
 	api          *tgbot.BotAPI
 	hashService  service.HashWorder
 	userService  *service.UserService
-	rabbitMQ     *service.RabbitMQService
+	rabbitMQ     *rabbitmq.RabbitMQService
 	statsService *service.StatsService
 	cfg          *config.Config
 }
 
-func NewBot(api *tgbot.BotAPI, hashService service.HashWorder, userService *service.UserService, rabbitMQ *service.RabbitMQService, statsService *service.StatsService, cfg *config.Config) *TgBot {
+func NewBot(api *tgbot.BotAPI, hashService service.HashWorder, userService *service.UserService, rabbitMQ *rabbitmq.RabbitMQService, statsService *service.StatsService, cfg *config.Config) *TgBot {
 	return &TgBot{
 		api:          api,
 		hashService:  hashService,

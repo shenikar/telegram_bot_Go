@@ -4,10 +4,10 @@ ifneq (,$(wildcard .env))
 endif
 
 build:
-	go build main.go
+	go build cmd/main.go
 
 run: build
-	./main
+	cd && ./main
 
 test:
 	cd service/ && go test -v
